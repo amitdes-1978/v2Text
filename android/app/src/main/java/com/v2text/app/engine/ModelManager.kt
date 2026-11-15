@@ -22,10 +22,10 @@ class ModelManager(context: Context) {
 
     val catalog = listOf(
         ModelInfo("tiny", "75 MiB · fastest, lowest accuracy", "bd577a113a864445d4c299885e0cb97d4ba92b5f"),
-        ModelInfo("base", "142 MiB · good start for the A52s", "465707469ff3a37a2b9b8d8f89f2f99de7299dac"),
-        ModelInfo("base-q5_1", "quantized base · smaller/faster", null),
-        ModelInfo("small", "466 MiB · better Hindi/Gujarati, slower", "55356645c2b361a969dfd0ef2c5a50d530afd8d5"),
-        ModelInfo("small-q5_1", "quantized small · smaller/faster", null),
+        ModelInfo("base", "142 MiB · fast; fine for clear English", "465707469ff3a37a2b9b8d8f89f2f99de7299dac"),
+        ModelInfo("base-q5_1", "quantized base · smaller, slightly less accurate", null),
+        ModelInfo("small-q5_1", "~190 MiB · much better Indian English, Hindi, Gujarati; a few seconds slower", null),
+        ModelInfo("small", "466 MiB · same accuracy as small-q5_1, larger and slower", "55356645c2b361a969dfd0ef2c5a50d530afd8d5"),
     )
 
     val dir = File(context.filesDir, "models").apply { mkdirs() }

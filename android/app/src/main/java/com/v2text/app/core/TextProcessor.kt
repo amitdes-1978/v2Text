@@ -183,6 +183,7 @@ object TextProcessor {
         if (snipMap.isNotEmpty()) changes += "snippets"
         text = masked
         if (o.removeFillers) step("fillers") { removeFillers(it, o.fillers) }
+        step("repeated_words", ::removeRepeatedWords)
         step("scratch_that", ::applyScratchThat)
         if (o.selfCorrections) step("self_correction", ::applySelfCorrections)
         step("spoken_commands", ::applySpokenCommands)
@@ -194,6 +195,32 @@ object TextProcessor {
 
     private val wordRe = Regex("""[\p{L}\p{M}\p{N}_'-]+""")
     fun wordCount(text: String): Int = wordRe.findAll(text).count()
+
+    // Stutters: "the the", "I I". Kept: numbers, and words that legitimately double ("that that", "had had").
+    private val repeatRe = Regex("""(?<!$WORD)($WORD+)(?:\s+\1)+(?!$WORD)""", I)
+    private val keepDoubled = setOf("that", "had", "is", "do", "very", "bye", "no", "yes", "ha", "hi")
+
+    fun removeRepeatedWords(text: String): String = repeatRe.replace(text) { m ->
+        val w = m.groupValues[1]
+        if (w.lowercase() in keepDoubled || w.any { it.isDigit() }) m.value else w
+    }
+
+    private val sentenceEnders = setOf('.', '!', '?', '\n', '।', '॥')
+    private val iForms = Regex("""^I(?:'m|'ll|'ve|'d)?$""")
+
+    /**
+     * Context continuation: when the text before the cursor ends mid-sentence, don't start the
+     * dictation with a capital letter (Whisper always capitalises). Kept capitalised: "I", acronyms
+     * (two or more capitals), and dictionary terms.
+     */
+    fun continueSentence(clean: String, contextBefore: String?, terms: List<String> = emptyList()): String {
+        val ctx = contextBefore?.trimEnd(' ', '\t') ?: return clean
+        if (ctx.isEmpty() || ctx.last() in sentenceEnders || clean.isEmpty()) return clean
+        val first = clean.takeWhile { !it.isWhitespace() }.trimEnd(',', '.', '!', '?', ';', ':')
+        if (first.isEmpty() || !first[0].isUpperCase()) return clean
+        if (iForms.matches(first) || first.count { it.isUpperCase() } >= 2 || terms.any { it == first || it.startsWith("$first ") }) return clean
+        return clean[0].lowercaseChar() + clean.substring(1)
+    }
 
     // ---------------------------------------------------------------- pattern builders
     private fun fillerRegex(alt: String) =
@@ -208,6 +235,6 @@ object TextProcessor {
     fun patternsForCompatCheck(): List<String> = listOf(
         protectedRegex.pattern, fillerRegex("um|उम्म|અં").pattern, scratchRe.pattern, sentenceSplit.pattern,
         corrRe.pattern, timeRe.pattern, ordRe.pattern, shortOrNumeric.pattern, wholeWord("l n g").pattern,
-        snippetRegex("my signature").pattern, sentenceStart.pattern, wordRe.pattern,
-    ) + spoken.map { it.first.pattern } + TIDY.map { it.pattern }
+        snippetRegex("my signature").pattern, sentenceStart.pattern, wordRe.pattern, repeatRe.pattern, iForms.pattern,
+    ) + TranscriptFilter.patternsForCompatCheck() + spoken.map { it.first.pattern } + TIDY.map { it.pattern }
 }

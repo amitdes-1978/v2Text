@@ -26,6 +26,8 @@ class Settings(context: Context) {
     var prerollMs: Int get() = p.getInt("preroll_ms", 400); set(v) = p.edit().putInt("preroll_ms", v).apply()
     var tailMs: Int get() = p.getInt("tail_ms", 300); set(v) = p.edit().putInt("tail_ms", v).apply()
     /** Digital gain for quiet input (Samsung's raw speech mic is low-gain). Saved audio is never changed. */
+    /** Opt-in: use text before the cursor (stays on the phone) to prime recognition and continue sentences. */
+    var useContext: Boolean get() = p.getBoolean("context", false); set(v) = p.edit().putBoolean("context", v).apply()
     var boostQuiet: Boolean get() = p.getBoolean("boost", true); set(v) = p.edit().putBoolean("boost", v).apply()
     var minMs: Int get() = p.getInt("min_ms", 400); set(v) = p.edit().putInt("min_ms", v).apply()
 

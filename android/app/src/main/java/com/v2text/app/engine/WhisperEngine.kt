@@ -66,10 +66,13 @@ class WhisperEngine(private val modelFile: () -> File?, private val threads: () 
 
     override suspend fun warmUp() { withContext(thread) { ensureLoaded() } }
 
-    override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript =
+    override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>, context: String?): Transcript =
         withContext(thread) {
             val model = ensureLoaded()
-            val prompt = listOf(profile.prompt, if (hints.isEmpty()) "" else "Vocabulary: ${hints.joinToString(", ")}.")
+            // Whisper's prompt acts as "the text before this audio": style + vocabulary, then the user's own
+            // preceding text (if context is enabled) last, so names and sentence flow carry over.
+            val prompt = listOf(profile.prompt, if (hints.isEmpty()) "" else "Vocabulary: ${hints.joinToString(", ")}.",
+                context?.takeLast(160)?.trim() ?: "")
                 .filter { it.isNotBlank() }.joinToString(" ")
             val t0 = System.nanoTime()
             val bytes = WhisperNative.transcribe(ptr, threads(), audio, profile.whisperLanguage,

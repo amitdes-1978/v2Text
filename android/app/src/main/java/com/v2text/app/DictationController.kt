@@ -10,6 +10,7 @@ import com.v2text.app.core.AudioPrep
 import com.v2text.app.core.AudioReport
 import com.v2text.app.core.Languages
 import com.v2text.app.core.TextProcessor
+import com.v2text.app.core.TranscriptFilter
 import com.v2text.app.core.Wav
 import com.v2text.app.engine.SttException
 import com.v2text.app.service.InsertResult
@@ -62,11 +63,15 @@ class DictationController(private val app: V2TextApp) {
                 "no_speech", report = report, canRetry = kept != null, error = "No speech detected.")
         }
         val engine = app.engine()
-        // Optional gain on the recognizer's copy only; the saved WAV stays raw.
-        val prep = if (s.boostQuiet) AudioPrep.normalize(audio) else AudioPrep.Result(audio, 0.0)
-        base.put("diagnostics", report.toJson().dropLast(1) + ",\"gain_db\":${prep.gainDb}}")
+        // Recognizer gets a trimmed (and optionally boosted) copy; the saved WAV stays raw.
+        val trimmed = AudioPrep.trimSilence(audio, Recorder.SR)
+        val prep = if (s.boostQuiet) AudioPrep.normalize(trimmed) else AudioPrep.Result(trimmed, 0.0)
+        base.put("diagnostics", report.toJson().dropLast(1) +
+            ",\"gain_db\":${prep.gainDb},\"trimmed_s\":${"%.2f".format(java.util.Locale.US, (audio.size - trimmed.size) / 16000.0)}}")
+        val context = if (s.useContext && retryOf == null)
+            V2TextAccessibilityService.instance?.contextBeforeCursor(s.blockedPackages) else null
         val t = try {
-            engine.transcribe(prep.audio, Languages.get(s.language), s.dictionary.map { it.term })
+            engine.transcribe(prep.audio, Languages.get(s.language), s.dictionary.map { it.term }, context)
         } catch (e: SttException) {
             val kept = finalizeAudio(wav, success = false)
             val status = if (e.kind == SttException.Kind.NO_MATCH) "no_speech" else "stt_error"
@@ -80,7 +85,19 @@ class DictationController(private val app: V2TextApp) {
                 put("status", "no_speech"); put("engine", t.engine); put("model", t.model); put("audio_path", kept?.absolutePath)
             }), "no_speech", report = report, canRetry = kept != null, error = "The engine heard no words.")
         }
-        val cleaned = TextProcessor.clean(t.text, s.cleanOptions())
+        val filtered = TranscriptFilter.clean(t.text)
+        val formatted = TextProcessor.clean(filtered.text, s.cleanOptions())
+        val continued = TextProcessor.continueSentence(formatted.text, context, s.dictionary.map { it.term })
+        val cleaned = com.v2text.app.core.CleanResult(continued,
+            filtered.changes + formatted.changes + if (continued != formatted.text) listOf("continued_sentence") else emptyList())
+        if (cleaned.text.isBlank()) {
+            val kept = finalizeAudio(wav, success = false)
+            return Outcome(record(base.apply {
+                put("status", "no_speech"); put("engine", t.engine); put("model", t.model); put("verbatim", t.text)
+                put("changes", cleaned.changes.joinToString(",")); put("audio_path", kept?.absolutePath)
+            }), "no_speech", t.text, report = report, canRetry = kept != null,
+                error = "Only non-speech or invented text was recognised (e.g. \"[Music]\"). Speak again, closer to the mic.")
+        }
         val kept = finalizeAudio(wav, success = true)
         val autoInsert = insert && s.insertMode == "auto"
         val id = record(base.apply {
@@ -110,9 +127,11 @@ class DictationController(private val app: V2TextApp) {
         throw c
     } catch (t: Throwable) {   // includes Errors such as OutOfMemoryError / UnsatisfiedLinkError
         CrashReport.record(app, where, t)
-        val msg = "Internal error (${t.javaClass.simpleName}: ${t.message}). Your recording was saved if possible. " +
+        val msg = "Internal error (${t.javaClass.simpleName}: ${t.message}). " +
             "Open v2Text → Crash report → Copy, and send it to the developer."
-        Outcome(-1, "stt_error", error = msg)
+        // Always leave a History entry, so failures are visible (and the crash log can be copied).
+        val id = try { record(ContentValues().apply { put("status", "stt_error"); put("error", msg) }) } catch (_: Throwable) { -1L }
+        Outcome(id, "stt_error", error = msg)
     }
 
     /** Puts text into the focused field; on failure it is left on the clipboard. */

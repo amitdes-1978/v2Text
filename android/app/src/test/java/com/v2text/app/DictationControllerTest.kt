@@ -32,7 +32,7 @@ class DictationControllerTest {
                              var fail: SttException? = null) : SpeechEngine {
         override val id = "fake"; override val label = "fake"
         var calls = 0; var lastProfile: LanguageProfile? = null; var lastHints: List<String> = emptyList()
-        override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript {
+        override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>, context: String?): Transcript {
             calls++; lastProfile = profile; lastHints = hints
             fail?.let { throw it }
             return Transcript(text, id, "fake-1", "en", 0.01)
@@ -160,7 +160,7 @@ class DictationControllerTest {
         var heardPeak = 0f
         app.engineOverride = object : SpeechEngine {
             override val id = "peek"; override val label = "peek"
-            override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript {
+            override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>, context: String?): Transcript {
                 heardPeak = audio.maxOf { kotlin.math.abs(it) }; return Transcript("hello", id, "m", null, 0.0)
             }
         }
@@ -177,12 +177,37 @@ class DictationControllerTest {
         File(app.filesDir, "crash.txt").delete()
         app.engineOverride = object : SpeechEngine {
             override val id = "boom"; override val label = "boom"
-            override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript =
+            override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>, context: String?): Transcript =
                 throw IllegalStateException("native layer exploded")
         }
         val out = app.controller.processSafely(speech(), null, null)
         assertEquals("stt_error", out.status)
         assertTrue(out.error!!.contains("native layer exploded"))
         assertTrue(File(app.filesDir, "crash.txt").readText().contains("IllegalStateException"))
+    }
+
+    @Test fun onlyHallucinatedOutputBecomesNoSpeech() = runTest {
+        engine.text = "[Music] Thanks for watching!"
+        val out = app.controller.process(speech(), null, null)
+        assertEquals("no_speech", out.status)
+        assertEquals("[Music] Thanks for watching!", app.db.get(out.id)!!.verbatim)   // verbatim kept for audit
+    }
+
+    @Test fun internalErrorsLeaveAHistoryEntry() = runTest {
+        app.engineOverride = object : SpeechEngine {
+            override val id = "boom"; override val label = "boom"
+            override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>, context: String?): Transcript =
+                throw NoClassDefFoundError("com.example.Broken")
+        }
+        val out = app.controller.processSafely(speech(), null, null)
+        assertTrue(out.id > 0)
+        assertEquals("stt_error", app.db.get(out.id)!!.status)
+        assertTrue(app.db.get(out.id)!!.error!!.contains("NoClassDefFoundError"))
+    }
+
+    @Test fun stutterAndLoopCleanedInPipeline() = runTest {
+        engine.text = "please send the the report. please send the the report. please send the the report."
+        val out = app.controller.process(speech(), null, null)
+        assertEquals("Please send the report.", out.clean)
     }
 }

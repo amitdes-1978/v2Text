@@ -61,6 +61,8 @@ Java_com_v2text_app_engine_WhisperNative_transcribe(JNIEnv *env, jclass clazz, j
     p.no_context = true;
     p.no_timestamps = true;
     p.single_segment = false;
+    p.suppress_blank = true;
+    p.suppress_nst = true;        // suppress non-speech tokens ("[Music]", "(laughs)", "♪") at decode time
 
     const char *lang = language ? (*env)->GetStringUTFChars(env, language, NULL) : NULL;
     p.language = lang ? lang : "auto";

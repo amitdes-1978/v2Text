@@ -47,6 +47,12 @@ class MainActivity : BasePage() {
         langCard.choice("Speak in", Languages.PROFILES.map { it.code to it.label }, app.settings.language) {
             app.settings.language = it
         }
+        langCard.toggle("Use the text before the cursor (better names & sentence flow)", app.settings.useContext) {
+            app.settings.useContext = it
+        }
+        langCard.p("Off by default. When on, v2Text reads up to 200 characters before the cursor in the field you're " +
+            "dictating into, only at that moment, to guide recognition and continue your sentence. It never leaves " +
+            "the phone and is never read from password fields or blocked apps.", 12f, 0.7f)
         langCard.p("Use one language per dictation for best results. Hinglish and Gujarati accuracy varies by engine " +
             "and model: measure it on the Benchmark screen.", 12f, 0.7f)
 
@@ -157,7 +163,7 @@ class MainActivity : BasePage() {
             WhisperNative.unavailableReason?.let { engineBox.p("⚠ $it", 13f) }
             engineBox.p("Model in use: ${s.model ?: "none"}", 14f)
             val installed = app.models.installed().map { it.name }.toSet()
-            if (s.model == null) engineBox.p("👉 To start, tap Download under \"base\" below (Wi-Fi recommended). " +
+            if (s.model == null) engineBox.p("👉 To start, tap Download under \"★ $RECOMMENDED\" below (Wi-Fi recommended). " +
                 "Progress is shown in this box.", 14f)
             (progress.parent as? LinearLayout)?.removeView(progress)
             engineBox.addView(progress)
@@ -202,9 +208,9 @@ class MainActivity : BasePage() {
     private fun modelRow(m: ModelManager.ModelInfo, installed: Boolean) {
         val s = app.settings
         // Name and description on their own full-width lines; buttons underneath (no truncation on phones)
-        engineBox.p((if (m.name == "base") "★ " else "") + m.name + (if (s.model == m.fileName) "   ✅ in use" else
+        engineBox.p((if (m.name == RECOMMENDED) "★ " else "") + m.name + (if (s.model == m.fileName) "   ✅ in use" else
             if (installed) "   ✓ installed" else ""), 16f).apply { setPadding(0, dp(10), 0, 0) }
-        engineBox.p(m.note + if (m.name == "base") " · recommended first download" else "", 12f, 0.7f)
+        engineBox.p(m.note + if (m.name == RECOMMENDED) " · recommended for best accuracy" else "", 12f, 0.7f)
         val r = engineBox.row()
         if (installed) {
             r.smallButton(if (s.model == m.fileName) "In use" else "Use") { s.model = m.fileName; app.whisper.release(); renderEngine() }
@@ -277,4 +283,6 @@ class MainActivity : BasePage() {
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
+
+    companion object { const val RECOMMENDED = "small-q5_1" }
 }

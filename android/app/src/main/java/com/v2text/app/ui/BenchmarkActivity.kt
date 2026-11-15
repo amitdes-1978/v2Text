@@ -85,7 +85,8 @@ class BenchmarkActivity : BasePage() {
                         val uri = resolve(t, item.audio) ?: throw IllegalStateException("file not found")
                         val raw = Wav.decode(contentResolver.openInputStream(uri)!!.readBytes(), 16000)
                         // same preprocessing as live dictation, so scores reflect real use
-                        val audio = if (app.settings.boostQuiet) com.v2text.app.core.AudioPrep.normalize(raw).audio else raw
+                        val trimmed = com.v2text.app.core.AudioPrep.trimSilence(raw)
+                        val audio = if (app.settings.boostQuiet) com.v2text.app.core.AudioPrep.normalize(trimmed).audio else trimmed
                         engine.transcribe(audio, Languages.get(item.language), app.settings.dictionary.map { it.term }).text to null
                     } catch (ex: Throwable) {
                         if (ex is kotlinx.coroutines.CancellationException) throw ex

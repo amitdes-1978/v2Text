@@ -22,7 +22,7 @@ interface SpeechEngine {
     val label: String
 
     /** [audio] is mono float PCM at 16 kHz. */
-    suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript
+    suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>, context: String? = null): Transcript
 
     /** Load models ahead of the first dictation (optional). */
     suspend fun warmUp() {}

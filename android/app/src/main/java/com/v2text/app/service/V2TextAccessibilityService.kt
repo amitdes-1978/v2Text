@@ -36,6 +36,18 @@ class V2TextAccessibilityService : AccessibilityService() {
 
     fun focusedPackage(): String? = focused()?.packageName?.toString()
 
+    /**
+     * Up to [max] characters before the cursor in the focused field, only for context continuation
+     * (opt-in). Never for password fields or blocked apps; never stored or sent anywhere.
+     */
+    fun contextBeforeCursor(blocked: List<String>, max: Int = 200): String? {
+        val node = focused() ?: return null
+        if (node.isPassword || node.packageName?.toString() in blocked || node.isShowingHintText) return null
+        val text = node.text?.toString() ?: return null
+        val cur = node.textSelectionStart.let { if (it in 0..text.length) it else text.length }
+        return text.substring(0, cur).takeLast(max)
+    }
+
     fun insert(text: String, blocked: List<String>): InsertResult {
         val node = focused() ?: return InsertResult.NO_FIELD
         if (node.isPassword) return InsertResult.PASSWORD

@@ -3,7 +3,7 @@
 Do these in order. Each step says what you should see when it's done.
 
 ## 1. Install (or update) the app
-1. Download the latest APK from [`releases/`](../releases/) (currently **v2Text-0.1.2-debug.apk**) and open it.
+1. Download the latest APK from [`releases/`](../releases/) (currently **v2Text-0.2.0-debug.apk**) and open it.
 2. If asked, allow **Install unknown apps** for Chrome or My Files. If Play Protect warns, tap **More details → Install anyway**.
 3. Updating from an older v2Text? Just tap **Update**: your model, history and settings are kept.
 
@@ -29,10 +29,10 @@ then repeat the Accessibility step. Android does this for every app installed ou
 
 ## 3. Download the speech model (v2Text → "2 · Speech engine")
 1. Make sure **Engine** says **Whisper (whisper.cpp) · offline**.
-2. Connect to **Wi-Fi**. Under **★ base**, tap **Download** → **Download**.
-3. Watch the progress inside the box (about 142 MiB, a minute or two on Wi-Fi).
+2. Connect to **Wi-Fi**. Under **★ small-q5_1** (best accuracy) or **base** (fastest), tap **Download** → **Download**.
+3. Watch the progress inside the box (about 190 MiB for small-q5_1, 142 MiB for base).
 
-✅ "✅ ggml-base.bin installed and selected" and **Model in use: ggml-base.bin**.
+✅ "✅ … installed and selected" and **Model in use** shows the file. Already have base? Keep it, or download small-q5_1 and tap **Use**.
 
 ## 4. Choose your language (v2Text → "3 · Language")
 Pick the language you will speak: **English (India)**, **Hindi**, **Hinglish (Roman)** or **Gujarati**.

@@ -70,7 +70,7 @@ class AndroidRecognizerEngine(private val context: Context) : SpeechEngine {
         try { r.triggerModelDownload(intent(locale)) } finally { r.destroy() }
     }
 
-    override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript {
+    override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>, @Suppress("UNUSED_PARAMETER") textBefore: String?): Transcript {
         if (!isAvailable()) throw SttException("This phone has no on-device speech recognizer. Use the Whisper engine.",
             SttException.Kind.UNSUPPORTED_DEVICE)
         val pcm = Wav.pcmToBytes(Wav.toPcm(audio))

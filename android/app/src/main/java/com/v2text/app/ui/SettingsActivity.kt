@@ -12,6 +12,7 @@ class SettingsActivity : BasePage() {
         f.toggle("Remove filler sounds (um, uh, hmm)", s.removeFillers) { s.removeFillers = it }
         f.toggle("Apply explicit corrections (\"4 pm, actually 3 pm\")", s.selfCorrections) { s.selfCorrections = it }
         f.toggle("Format spoken lists (first…, second…)", s.formatLists) { s.formatLists = it }
+        f.toggle("Use the text before the cursor (stays on this phone)", s.useContext) { s.useContext = it }
         f.p("Numbers, times, dates, ₹ amounts, vehicle numbers (GJ 01 AB 1234), emails and links are never changed. " +
             "The verbatim transcript is always kept in History.", 12f, 0.7f)
 

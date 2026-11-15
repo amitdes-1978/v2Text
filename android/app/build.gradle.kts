@@ -12,8 +12,8 @@ android {
         applicationId = "com.v2text.app"
         minSdk = 33          // Android 13+: needed for feeding our own audio to the system recognizer
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.2.0"
         ndk { abiFilters += listOf("arm64-v8a") }   // Galaxy A52s (Snapdragon 778G) is arm64
         externalNativeBuild { cmake { arguments += listOf("-DANDROID_STL=c++_shared") } }
     }
