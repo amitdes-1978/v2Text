@@ -4,14 +4,16 @@ Offline voice typing with a floating bubble that works next to your normal keybo
 (Samsung Keyboard, Gboard and others). Speech is recognised **on the phone**, and nothing is uploaded.
 
 * **Target:** Samsung Galaxy A52s 5G (Snapdragon 778G, arm64), Android 13+ (`minSdk 33`, `targetSdk 35`)
-* **APK:** [`../releases/v2Text-0.1.1-debug.apk`](../releases/) (debug-signed, for sideloading)
+* **APK:** [`../releases/v2Text-0.1.2-debug.apk`](../releases/) (debug-signed, for sideloading)
 * **Status:** 0.1.0 was installed on a Galaxy A52s: the bubble, foreground mic service (about 130 ms mic start), history and
   notifications worked. Whisper transcription on the device is **not yet confirmed**.
   See [Verification status](#verification-status).
 
 ## Install on the phone
 
-1. Copy `v2Text-0.1.1-debug.apk` to the phone and open it. Allow "Install unknown apps" for your file manager when asked.
+**Step-by-step guide with what you should see at each step: [SETUP.md](SETUP.md)**
+
+1. Copy `v2Text-0.1.2-debug.apk` to the phone and open it. Allow "Install unknown apps" for your file manager when asked.
 2. Open **v2Text** and work through **1 · Setup**:
    * **Microphone**: Allow.
    * **Notifications**: Allow. Android needs a notification while an app can use the mic.
@@ -85,7 +87,7 @@ Needs JDK 17+, Android SDK platform 35, NDK `27.2.12479018` and CMake `3.22.1`.
 cd android
 echo "sdk.dir=$ANDROID_HOME" > local.properties
 ./gradlew assembleDebug          # -> app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest      # 34 tests (JVM + Robolectric)
+./gradlew testDebugUnitTest      # 35 tests (JVM + Robolectric)
 ./gradlew lintDebug
 ```
 
@@ -115,7 +117,8 @@ Use the same clips for every engine you compare.
 | `assembleDebug` (Kotlin + NDK/CMake whisper.cpp) | ✅ builds, APK signature v2 verifies |
 | Native library exports all 5 JNI functions, built with NEON/FP16/DOTPROD | ✅ checked with `llvm-nm` / `strings` |
 | Text formatter, diagnostics, gain, WER/CER, WAV I/O (JVM tests) | ✅ 23/23 |
-| Pipeline with real SQLite / prefs / clipboard / files (Robolectric, fake engine) | ✅ 11/11 |
+| Pipeline with real SQLite / prefs / clipboard / files (Robolectric, fake engine) | ✅ 12/12 |
+| Whisper JNI on emulated arm64 (qemu, NEON/FP16/DOTPROD), random-weights tiny model, 5 language/beam cases + silence | ✅ no crash |
 | Android lint | ✅ 0 errors |
 | Whisper inference with a real model | ❌ **not run**: the build machine couldn't download models |
 | Install, setup checklist, bubble, mic service, history, notifications | ✅ seen working on a Galaxy A52s (0.1.0) |
