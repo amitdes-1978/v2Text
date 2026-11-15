@@ -98,6 +98,23 @@ class DictationController(private val app: V2TextApp) {
             error = if (ins == InsertResult.OK) null else ins.message, report = report, insert = ins)
     }
 
+    /** [process] / [retry] that can never crash the app: any failure becomes a recorded, readable error. */
+    suspend fun processSafely(pcm: ShortArray, timing: Recorder.Timing?, route: String?): Outcome =
+        guard("dictation") { process(pcm, timing, route) }
+
+    suspend fun retrySafely(id: Long): Outcome = guard("retry #$id") { retry(id) }
+
+    private suspend fun guard(where: String, block: suspend () -> Outcome): Outcome = try {
+        block()
+    } catch (c: kotlinx.coroutines.CancellationException) {
+        throw c
+    } catch (t: Throwable) {   // includes Errors such as OutOfMemoryError / UnsatisfiedLinkError
+        CrashReport.record(app, where, t)
+        val msg = "Internal error (${t.javaClass.simpleName}: ${t.message}). Your recording was saved if possible. " +
+            "Open v2Text → Crash report → Copy, and send it to the developer."
+        Outcome(-1, "stt_error", error = msg)
+    }
+
     /** Puts text into the focused field; on failure it is left on the clipboard. */
     fun insertText(text: String): Pair<InsertResult, String?> {
         val svc = V2TextAccessibilityService.instance

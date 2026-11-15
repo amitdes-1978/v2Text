@@ -72,7 +72,8 @@ class BubbleService : Service() {
                     V2TextAccessibilityService.instance?.performGlobalAction(
                         android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
                     delay(700) // let the shade close so the original text field has focus again
-                    val r = controller.insertSession(id, force = intent.action == ACTION_INSERT_AGAIN)
+                    val r = try { controller.insertSession(id, force = intent.action == ACTION_INSERT_AGAIN) }
+                        catch (t: Throwable) { com.v2text.app.CrashReport.record(this@BubbleService, "insert", t); InsertResult.FAILED }
                     toast(r.message)
                     if (r == InsertResult.OK) nm().cancel(id.toInt())
                 }
@@ -85,7 +86,7 @@ class BubbleService : Service() {
                 nm().cancel(id.toInt())
                 bubble?.state = BubbleView.State.PROCESSING
                 scope.launch {
-                    val out = withContext(Dispatchers.Default) { controller.retry(id) }
+                    val out = withContext(Dispatchers.Default) { controller.retrySafely(id) }
                     report(out)
                 }
             }
@@ -150,7 +151,10 @@ class BubbleService : Service() {
         bubble = v
         // Load the speech model now so the first dictation isn't slow.
         scope.launch(Dispatchers.Default) {
-            try { app.engine().warmUp() } catch (e: Exception) { main.post { toast(e.message ?: "Speech engine not ready") } }
+            try { app.engine().warmUp() } catch (e: Throwable) {
+                if (e !is com.v2text.app.engine.SttException) com.v2text.app.CrashReport.record(this@BubbleService, "warmUp", e)
+                main.post { toast(e.message ?: "Speech engine not ready") }
+            }
         }
     }
 
@@ -223,8 +227,10 @@ class BubbleService : Service() {
         bubble?.state = BubbleView.State.PROCESSING
         scope.launch {
             val out = withContext(Dispatchers.Default) {
-                val (pcm, timing) = rec.stop()
-                controller.process(pcm, timing, rec.route)
+                val (pcm, timing) = try { rec.stop() } catch (t: Throwable) {
+                    com.v2text.app.CrashReport.record(this@BubbleService, "recorder.stop", t); ShortArray(0) to null
+                }
+                controller.processSafely(pcm, timing, rec.route)
             }
             report(out)
         }

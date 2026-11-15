@@ -67,7 +67,7 @@ class HistoryActivity : BasePage() {
         if (s.audioPath != null && File(s.audioPath).exists()) r.smallButton("Retry") {
             toast("Re-transcribing #${s.id}…")
             scope.launch {
-                val out = withContext(Dispatchers.Default) { app.controller.retry(s.id) }
+                val out = withContext(Dispatchers.Default) { app.controller.retrySafely(s.id) }
                 toast(if (out.clean.isNotEmpty()) "#${out.id}: ${out.clean}" else "${out.status}: ${out.error ?: ""}")
                 render()
             }

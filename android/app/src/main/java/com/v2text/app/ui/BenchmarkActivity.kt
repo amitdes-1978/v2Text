@@ -87,7 +87,11 @@ class BenchmarkActivity : BasePage() {
                         // same preprocessing as live dictation, so scores reflect real use
                         val audio = if (app.settings.boostQuiet) com.v2text.app.core.AudioPrep.normalize(raw).audio else raw
                         engine.transcribe(audio, Languages.get(item.language), app.settings.dictionary.map { it.term }).text to null
-                    } catch (ex: Exception) { "" to (ex.message ?: ex.javaClass.simpleName) }
+                    } catch (ex: Throwable) {
+                        if (ex is kotlinx.coroutines.CancellationException) throw ex
+                        com.v2text.app.CrashReport.record(this@BenchmarkActivity, "benchmark ${item.audio}", ex)
+                        "" to (ex.message ?: ex.javaClass.simpleName)
+                    }
                     rows += Bench.row(item, hyp, (System.nanoTime() - t0) / 1e9, e)
                 }
                 val model = if (engine.id == "whisper") app.settings.model ?: "?" else "system"

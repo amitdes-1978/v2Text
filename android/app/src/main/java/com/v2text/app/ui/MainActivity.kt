@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : BasePage() {
     private lateinit var setupBox: LinearLayout
+    private lateinit var crashBox: LinearLayout
     private lateinit var engineBox: LinearLayout
     private lateinit var bubbleBtn: android.widget.Button
     private lateinit var progress: TextView
@@ -30,6 +31,8 @@ class MainActivity : BasePage() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        crashBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(crashBox)
         root.p("Private voice typing. Speech is recognised on this phone; nothing is uploaded.", 14f, 0.8f)
 
         root.h2("1 · Setup")
@@ -67,9 +70,24 @@ class MainActivity : BasePage() {
 
     override fun onResume() {
         super.onResume()
+        renderCrash()
         renderSetup()
         renderEngine()
         bubbleBtn.text = if (BubbleService.running) "Stop bubble" else "Start bubble"
+    }
+
+    private fun renderCrash() {
+        crashBox.removeAllViews()
+        val report = try { com.v2text.app.CrashReport.unseenExit(this) } catch (_: Throwable) { null } ?: return
+        val c = crashBox.card()
+        c.p("⚠ v2Text stopped unexpectedly last time", 16f)
+        c.p(report.lineSequence().drop(2).firstOrNull() ?: "", 13f, 0.8f)
+        c.p("Please tap Copy crash report and paste it to the developer (it contains no audio or transcripts).", 12f, 0.7f)
+        val r = c.row()
+        r.smallButton("Copy crash report") {
+            app.controller.copyToClipboard(report); toast("Crash report copied")
+        }
+        r.smallButton("Dismiss") { com.v2text.app.CrashReport.markSeen(this); crashBox.removeAllViews() }
     }
 
     // ---------------------------------------------------------------- setup checklist

@@ -172,4 +172,17 @@ class DictationControllerTest {
         val saved = com.v2text.app.core.Wav.decode(File(row.audioPath!!).readBytes())
         assertTrue("saved audio is raw", saved.maxOf { kotlin.math.abs(it) } < 0.05f)
     }
+
+    @Test fun unexpectedEngineFailureIsReportedNotCrashed() = runTest {
+        File(app.filesDir, "crash.txt").delete()
+        app.engineOverride = object : SpeechEngine {
+            override val id = "boom"; override val label = "boom"
+            override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript =
+                throw IllegalStateException("native layer exploded")
+        }
+        val out = app.controller.processSafely(speech(), null, null)
+        assertEquals("stt_error", out.status)
+        assertTrue(out.error!!.contains("native layer exploded"))
+        assertTrue(File(app.filesDir, "crash.txt").readText().contains("IllegalStateException"))
+    }
 }

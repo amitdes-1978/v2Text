@@ -37,6 +37,7 @@ class V2TextApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashReport.installUncaughtHandler(this)
         settings = Settings(this)
         db = HistoryDb(this)
         models = ModelManager(this)
