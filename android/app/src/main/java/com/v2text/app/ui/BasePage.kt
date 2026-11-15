@@ -61,7 +61,9 @@ abstract class BasePage : Activity() {
         text = t; isAllCaps = false; setOnClickListener { onClick() }
     }.also { addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
 
-    protected fun LinearLayout.row(): LinearLayout = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+    // baselineAligned=false: otherwise a multi-line label is pushed down and clipped next to a button
+    protected fun LinearLayout.row(): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL; isBaselineAligned = false }
         .also { addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
 
     protected fun LinearLayout.smallButton(t: String, onClick: () -> Unit) = Button(context).apply {
@@ -81,7 +83,9 @@ abstract class BasePage : Activity() {
     protected fun <T> LinearLayout.choice(label: String, options: List<Pair<T, String>>, current: T, onPick: (T) -> Unit): Spinner {
         p(label, 13f, 0.75f)
         val sp = Spinner(context)
-        sp.adapter = ArrayAdapter(context, android.R.layout.simple_spinner_dropdown_item, options.map { it.second })
+        sp.adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, options.map { it.second }).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
         sp.setSelection(options.indexOfFirst { it.first == current }.coerceAtLeast(0))
         sp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) { onPick(options[pos].first) }

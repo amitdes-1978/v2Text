@@ -18,7 +18,6 @@ class HistoryActivity : BasePage() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root.h1("History")
         root.p(app.db.stats(), 12f, 0.75f)
         val r = root.row()
         r.smallButton("Delete all saved audio") {

@@ -34,7 +34,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.HistoryActivity" android:exported="false" android:label="History" />
-        <activity android:name=".ui.DictionaryActivity" android:exported="false" android:label="Dictionary"
+        <activity android:name=".ui.DictionaryActivity" android:exported="false" android:label="Dictionary &amp; snippets"
             android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.SettingsActivity" android:exported="false" android:label="Settings" />
         <activity android:name=".ui.BenchmarkActivity" android:exported="false" android:label="Benchmark" />

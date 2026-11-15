@@ -27,6 +27,14 @@ class V2TextApp : Application() {
 
     fun engine(): SpeechEngine = engineOverride ?: if (settings.engine == "android") android else whisper
 
+    /** Why dictation can't work right now (shown before recording starts), or null when ready. */
+    fun engineProblem(): String? = if (engineOverride != null) null else when (settings.engine) {
+        "android" -> if (android.isAvailable()) null else "This phone has no on-device recognizer. Switch to Whisper in v2Text."
+        else -> com.v2text.app.engine.WhisperNative.unavailableReason
+            ?: if (settings.model?.let { File(models.dir, it).exists() } != true)
+                "No Whisper model yet. Open v2Text → Speech engine → Download \"base\"." else null
+    }
+
     override fun onCreate() {
         super.onCreate()
         settings = Settings(this)

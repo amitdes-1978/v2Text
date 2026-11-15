@@ -141,7 +141,7 @@ class BubbleService : Service() {
         v.setOnTouchListener(TouchHandler())
         v.onAccessibilityClick = {
             when (mode) {
-                Mode.IDLE -> { startTake(); mode = Mode.TOGGLE; v.handsFree = true }
+                Mode.IDLE -> { startTake(); if (mode == Mode.HOLD) { mode = Mode.TOGGLE; v.handsFree = true } }
                 Mode.TOGGLE, Mode.HOLD -> finishTake()
                 Mode.PROCESSING -> toast("Still processing the last dictation…")
             }
@@ -167,7 +167,7 @@ class BubbleService : Service() {
                 MotionEvent.ACTION_DOWN -> {
                     downX = e.rawX; downY = e.rawY; startX = p.x; startY = p.y
                     downAt = SystemClock.elapsedRealtime(); dragging = false; startedThisTouch = false
-                    if (mode == Mode.IDLE) { startTake(); startedThisTouch = true }   // start at once: no lost first word
+                    if (mode == Mode.IDLE) { startTake(); startedThisTouch = mode == Mode.HOLD }   // start at once: no lost first word
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - downX; val dy = e.rawY - downY
@@ -197,6 +197,12 @@ class BubbleService : Service() {
 
     private fun startTake() {
         val rec = recorder ?: return
+        app.engineProblem()?.let { problem ->
+            // Don't let the user speak into a pipeline that can't transcribe.
+            flash(BubbleView.State.ERROR); toast(problem)
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
         mode = Mode.HOLD
         bubble?.handsFree = false
         bubble?.state = BubbleView.State.STARTING   // switches to RECORDING when real audio arrives
@@ -234,7 +240,10 @@ class BubbleService : Service() {
             else -> {
                 flash(BubbleView.State.ERROR)
                 toast(out.error ?: out.status)
-                if (out.canRetry) resultNotification(out, out.error ?: "Recognition failed", insert = false, retry = true)
+                if (out.canRetry) resultNotification(out, (out.error ?: "Recognition failed") +
+                    if (out.error?.contains("model", ignoreCase = true) == true)
+                        "\nYour recording is saved: download a model in v2Text, then tap Retry." else "",
+                    insert = false, retry = true)
             }
         }
         out.report?.warnings?.firstOrNull()?.let { if (out.status == "ok") toast("⚠ $it") }

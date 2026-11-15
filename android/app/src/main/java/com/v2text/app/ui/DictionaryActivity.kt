@@ -15,7 +15,6 @@ class DictionaryActivity : BasePage() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root.h1("Dictionary & snippets")
         root.p("Terms are spelled exactly as you enter them and are given to the recognizer as hints. Aliases are exact " +
             "phrases that get replaced with the term (no fuzzy matching; numbers and very short words are never " +
             "replaced).", 12f, 0.75f)

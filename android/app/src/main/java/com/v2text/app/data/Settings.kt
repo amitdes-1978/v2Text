@@ -25,6 +25,8 @@ class Settings(context: Context) {
     var preroll: Boolean get() = p.getBoolean("preroll", false); set(v) = p.edit().putBoolean("preroll", v).apply()
     var prerollMs: Int get() = p.getInt("preroll_ms", 400); set(v) = p.edit().putInt("preroll_ms", v).apply()
     var tailMs: Int get() = p.getInt("tail_ms", 300); set(v) = p.edit().putInt("tail_ms", v).apply()
+    /** Digital gain for quiet input (Samsung's raw speech mic is low-gain). Saved audio is never changed. */
+    var boostQuiet: Boolean get() = p.getBoolean("boost", true); set(v) = p.edit().putBoolean("boost", v).apply()
     var minMs: Int get() = p.getInt("min_ms", 400); set(v) = p.edit().putInt("min_ms", v).apply()
 
     /** auto = insert straight away; preview = show the result first, insert on tap. */

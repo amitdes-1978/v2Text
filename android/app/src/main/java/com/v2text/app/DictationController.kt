@@ -6,6 +6,7 @@ import android.content.ContentValues
 import android.content.Context
 import com.v2text.app.audio.Recorder
 import com.v2text.app.core.AudioDiagnostics
+import com.v2text.app.core.AudioPrep
 import com.v2text.app.core.AudioReport
 import com.v2text.app.core.Languages
 import com.v2text.app.core.TextProcessor
@@ -61,8 +62,11 @@ class DictationController(private val app: V2TextApp) {
                 "no_speech", report = report, canRetry = kept != null, error = "No speech detected.")
         }
         val engine = app.engine()
+        // Optional gain on the recognizer's copy only; the saved WAV stays raw.
+        val prep = if (s.boostQuiet) AudioPrep.normalize(audio) else AudioPrep.Result(audio, 0.0)
+        base.put("diagnostics", report.toJson().dropLast(1) + ",\"gain_db\":${prep.gainDb}}")
         val t = try {
-            engine.transcribe(audio, Languages.get(s.language), s.dictionary.map { it.term })
+            engine.transcribe(prep.audio, Languages.get(s.language), s.dictionary.map { it.term })
         } catch (e: SttException) {
             val kept = finalizeAudio(wav, success = false)
             val status = if (e.kind == SttException.Kind.NO_MATCH) "no_speech" else "stt_error"

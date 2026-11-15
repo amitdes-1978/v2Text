@@ -53,4 +53,34 @@ class MetricsAudioTest {
         assertEquals(1600, same.size)
         assertEquals(a[100], same[100], 1e-3f)
     }
+
+    @Test fun pausesDoNotMakeNormalSpeechLookQuiet() {
+        // 0.5 s of speech at about -30 dBFS speech level inside 4 s of near-silence
+        val a = FloatArray(64000) { i -> if (i in 28000 until 36000) (0.045 * sin(2 * PI * 200 * i / 16000)).toFloat() else 0.0005f }
+        val r = AudioDiagnostics.analyze(a)
+        assertTrue(r.speechDetected)
+        assertTrue("whole-clip RMS is low", r.rmsDbfs < -38)
+        assertTrue("speech RMS is normal: ${r.speechRmsDbfs}", r.speechRmsDbfs > -35)
+        assertFalse(r.warnings.any { "quiet" in it })
+    }
+
+    @Test fun reallyQuietSpeechIsFlagged() {
+        // about -46 dBFS speech between pauses: still detected as speech, and flagged as quiet
+        val a = FloatArray(48000) { i -> if (i in 16000 until 32000) (0.007 * sin(2 * PI * 200 * i / 16000)).toFloat() else 0f }
+        val r = AudioDiagnostics.analyze(a)
+        assertTrue("quiet speech must not be dropped as silence", r.speechDetected)
+        assertTrue(r.warnings.any { "quiet" in it })
+    }
+
+    @Test fun gainRaisesQuietAudioButNeverLoudOrSilent() {
+        val quiet = FloatArray(16000) { i -> (0.02 * sin(2 * PI * 200 * i / 16000)).toFloat() }
+        val r = AudioPrep.normalize(quiet)
+        assertTrue(r.gainDb in 20.0..24.0)
+        assertTrue(r.audio.maxOf { abs(it) } <= 1f)
+        assertEquals(0.02f, quiet.maxOf { abs(it) }, 1e-3f)          // input untouched
+        assertEquals(0.0, AudioPrep.normalize(FloatArray(100) { 0.8f }).gainDb, 0.0)
+        assertEquals(0.0, AudioPrep.normalize(FloatArray(100)).gainDb, 0.0)
+        val faint = FloatArray(100) { 0.001f }                          // capped at +24 dB
+        assertEquals(24.0, AudioPrep.normalize(faint).gainDb, 0.01)
+    }
 }

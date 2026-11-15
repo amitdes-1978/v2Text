@@ -28,7 +28,6 @@ class BenchmarkActivity : BasePage() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root.h1("Benchmark")
         root.p("Put your recordings (16-bit WAV, any sample rate) and a manifest.csv in one folder on the phone, e.g. " +
             "Documents/v2text-bench. manifest.csv columns:\n\naudio,reference,language,critical_terms\n" +
             "clips/en01.wav,\"Send the LNG report by 3 pm.\",en-IN,\"LNG;3 pm\"\n\nlanguage is one of " +
@@ -84,7 +83,9 @@ class BenchmarkActivity : BasePage() {
                     val t0 = System.nanoTime()
                     val (hyp, e) = try {
                         val uri = resolve(t, item.audio) ?: throw IllegalStateException("file not found")
-                        val audio = Wav.decode(contentResolver.openInputStream(uri)!!.readBytes(), 16000)
+                        val raw = Wav.decode(contentResolver.openInputStream(uri)!!.readBytes(), 16000)
+                        // same preprocessing as live dictation, so scores reflect real use
+                        val audio = if (app.settings.boostQuiet) com.v2text.app.core.AudioPrep.normalize(raw).audio else raw
                         engine.transcribe(audio, Languages.get(item.language), app.settings.dictionary.map { it.term }).text to null
                     } catch (ex: Exception) { "" to (ex.message ?: ex.javaClass.simpleName) }
                     rows += Bench.row(item, hyp, (System.nanoTime() - t0) / 1e9, e)

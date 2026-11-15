@@ -26,10 +26,10 @@ class MainActivity : BasePage() {
     private lateinit var bubbleBtn: android.widget.Button
     private lateinit var progress: TextView
     @Volatile private var cancelDownload = false
+    private var downloading: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root.h1("v2Text")
         root.p("Private voice typing. Speech is recognised on this phone; nothing is uploaded.", 14f, 0.8f)
 
         root.h2("1 · Setup")
@@ -139,6 +139,11 @@ class MainActivity : BasePage() {
             WhisperNative.unavailableReason?.let { engineBox.p("⚠ $it", 13f) }
             engineBox.p("Model in use: ${s.model ?: "none"}", 14f)
             val installed = app.models.installed().map { it.name }.toSet()
+            if (s.model == null) engineBox.p("👉 To start, tap Download under \"base\" below (Wi-Fi recommended). " +
+                "Progress is shown in this box.", 14f)
+            (progress.parent as? LinearLayout)?.removeView(progress)
+            engineBox.addView(progress)
+            if (downloading != null) engineBox.button("Cancel download") { cancelDownload = true }
             app.models.catalog.forEach { m -> modelRow(m, m.fileName in installed) }
             app.models.installed().filter { f -> app.models.catalog.none { it.fileName == f.name } }.forEach { f ->
                 val r = engineBox.row()
@@ -178,12 +183,16 @@ class MainActivity : BasePage() {
 
     private fun modelRow(m: ModelManager.ModelInfo, installed: Boolean) {
         val s = app.settings
+        // Name and description on their own full-width lines; buttons underneath (no truncation on phones)
+        engineBox.p((if (m.name == "base") "★ " else "") + m.name + (if (s.model == m.fileName) "   ✅ in use" else
+            if (installed) "   ✓ installed" else ""), 16f).apply { setPadding(0, dp(10), 0, 0) }
+        engineBox.p(m.note + if (m.name == "base") " · recommended first download" else "", 12f, 0.7f)
         val r = engineBox.row()
-        r.addView(TextView(this).apply { text = "${m.name}\n${m.note}"; textSize = 13f }, LinearLayout.LayoutParams(0, -2, 2f))
         if (installed) {
             r.smallButton(if (s.model == m.fileName) "In use" else "Use") { s.model = m.fileName; app.whisper.release(); renderEngine() }
             r.smallButton("Delete") { app.models.file(m.fileName)?.let(::confirmDelete) }
-        } else r.smallButton("Download") { confirmDownload(m) }
+        } else r.smallButton(if (downloading == m.fileName) "Downloading…" else "Download") { confirmDownload(m) }
+            .apply { isEnabled = downloading == null }
     }
 
     private fun confirmDelete(f: java.io.File) = alert("Delete ${f.name}?", "You can download it again later.", "Delete") {
@@ -205,7 +214,9 @@ class MainActivity : BasePage() {
 
     private fun download(m: ModelManager.ModelInfo) {
         cancelDownload = false
+        downloading = m.fileName
         progress.text = "Downloading ${m.fileName}…"
+        renderEngine()
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -217,10 +228,15 @@ class MainActivity : BasePage() {
                     }, { cancelDownload || isDestroyed })
                 }
             }
+            downloading = null
             result.onSuccess { f ->
                 if (app.settings.model == null) app.settings.model = f.name
-                progress.text = "✅ ${f.name} installed"
-            }.onFailure { progress.text = "❌ ${it.message}" }
+                progress.text = "✅ ${f.name} installed and selected. Dictations that failed earlier can be " +
+                    "re-transcribed from History → Retry."
+            }.onFailure {
+                progress.text = if (cancelDownload) "Download cancelled." else
+                    "❌ Download failed: ${it.message}. Check the internet connection and try again."
+            }
             renderEngine()
         }
     }

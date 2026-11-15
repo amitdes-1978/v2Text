@@ -6,7 +6,6 @@ class SettingsActivity : BasePage() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val s = app.settings
-        root.h1("Settings")
 
         root.h2("Formatting (applied to the clean text only)")
         val f = root.card()
@@ -29,6 +28,9 @@ class SettingsActivity : BasePage() {
         m.choice("Pre-roll length", listOf(300 to "300 ms", 400 to "400 ms", 500 to "500 ms"), s.prerollMs) { s.prerollMs = it }
         m.choice("Keep recording after you stop", listOf(0 to "0 ms", 150 to "150 ms", 300 to "300 ms", 500 to "500 ms"),
             s.tailMs) { s.tailMs = it }
+        m.toggle("Boost quiet speech before recognition", s.boostQuiet) { s.boostQuiet = it }
+        m.p("Raises low microphone levels (up to +24 dB) on the copy sent to the speech engine. Recordings are " +
+            "saved unchanged. Compare on/off on the Benchmark screen.", 12f, 0.7f)
         m.choice("Ignore taps shorter than", listOf(250 to "250 ms", 400 to "400 ms", 600 to "600 ms"), s.minMs) { s.minMs = it }
 
         root.h2("Whisper engine")

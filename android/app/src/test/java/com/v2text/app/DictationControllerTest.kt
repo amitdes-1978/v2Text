@@ -143,4 +143,33 @@ class DictationControllerTest {
         assertEquals("Command Centre", app.settings.cleanOptions().aliases["command center"])
         app.settings.snippets = emptyMap()
     }
+
+    @Test fun engineReadinessIsCheckedBeforeRecording() {
+        app.engineOverride = null
+        app.settings.engine = "whisper"
+        app.settings.model = null
+        val problem = app.engineProblem()
+        assertNotNull(problem)
+        app.engineOverride = engine
+        assertNull(app.engineProblem())
+    }
+
+    @Test fun quietTakeIsBoostedForRecognitionButSavedRaw() = runTest {
+        app.settings.retention = "always"
+        val quiet = speech().map { (it / 12).toShort() }.toShortArray()
+        var heardPeak = 0f
+        app.engineOverride = object : SpeechEngine {
+            override val id = "peek"; override val label = "peek"
+            override suspend fun transcribe(audio: FloatArray, profile: LanguageProfile, hints: List<String>): Transcript {
+                heardPeak = audio.maxOf { kotlin.math.abs(it) }; return Transcript("hello", id, "m", null, 0.0)
+            }
+        }
+        val out = app.controller.process(quiet, null, null)
+        val row = app.db.get(out.id)!!
+        // raw peak ~0.015 (-36 dBFS); gain is capped at +24 dB -> ~0.24
+        assertTrue("recognizer got a boosted copy: $heardPeak", heardPeak > 0.2f)
+        assertTrue(row.diagnostics!!.contains("\"gain_db\":"))
+        val saved = com.v2text.app.core.Wav.decode(File(row.audioPath!!).readBytes())
+        assertTrue("saved audio is raw", saved.maxOf { kotlin.math.abs(it) } < 0.05f)
+    }
 }

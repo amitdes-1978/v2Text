@@ -7,7 +7,7 @@ numbers and IDs are protected, and no paid API is required.
 | | Where | What |
 |---|---|---|
 | 📱 **Android app** (Galaxy A52s) | [`android/`](android/README.md) | Floating bubble over any app, on-device whisper.cpp or the system recognizer, accessibility insertion, retry, benchmark |
-| ⬇️ **APK** | [`releases/`](releases/) | `v2Text-0.1.0-debug.apk` + `SHA256SUMS` |
+| ⬇️ **APK** | [`releases/`](releases/) | `v2Text-0.1.1-debug.apk` (latest) + `SHA256SUMS` |
 | 💻 **Desktop app** (Windows / macOS / Linux) | this page, [`v2text/`](v2text/) | Push-to-talk hotkey, faster-whisper, optional Claude cleanup |
 | 📄 **Product study** | [`docs/WISPR_FLOW_STUDY.md`](docs/WISPR_FLOW_STUDY.md) | How Wispr Flow works, and what v2Text does differently |
 
