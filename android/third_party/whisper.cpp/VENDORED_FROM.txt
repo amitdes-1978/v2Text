@@ -1,0 +1,6 @@
+whisper.cpp commit 5922450fbce1ed9d1648babd0d5ac4520055b436 (Fri Nov 13 08:04:38 2026 +0100)
+source: https://github.com/ggml-org/whisper.cpp (MIT)
+
+Trimmed for this CPU-only Android build (GPU/accelerator backends are never compiled
+unless their GGML_<NAME> option is ON): removed ggml/src/{ggml-opencl,ggml-cuda,ggml-hexagon,ggml-vulkan,ggml-sycl,ggml-metal,ggml-et,ggml-openvino,ggml-webgpu,ggml-cann,ggml-virtgpu,ggml-rpc,ggml-zdnn,ggml-zendnn,ggml-blas,ggml-musa,ggml-hip}.
+To experiment with the Adreno OpenCL or Hexagon backends later, re-copy them from upstream.

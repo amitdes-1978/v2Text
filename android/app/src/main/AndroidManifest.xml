@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Microphone, only while the bubble is red -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- The bubble: a microphone foreground service + an overlay window -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Used ONLY when the user taps "Download" for a speech model. Audio is never uploaded. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".V2TextApp"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight"
+        android:supportsRtl="true">
+
+        <activity android:name=".ui.MainActivity" android:exported="true" android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".ui.HistoryActivity" android:exported="false" android:label="History" />
+        <activity android:name=".ui.DictionaryActivity" android:exported="false" android:label="Dictionary"
+            android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.SettingsActivity" android:exported="false" android:label="Settings" />
+        <activity android:name=".ui.BenchmarkActivity" android:exported="false" android:label="Benchmark" />
+
+        <service android:name=".service.BubbleService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <service android:name=".service.V2TextAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+    </application>
+</manifest>

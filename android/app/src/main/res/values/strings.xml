@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">v2Text</string>
+    <string name="accessibility_label">v2Text voice typing</string>
+    <string name="accessibility_description">Lets v2Text type your dictated text into the text field you are using. v2Text reads only that field\'s text and cursor position, only at the moment it inserts your words. It never reads other screen content, never logs what you see, and never types into password fields. Recognition happens on this phone; nothing is uploaded.</string>
+</resources>

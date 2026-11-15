@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+android/.idea/
+*.iml
+.kotlin/
+# never commit signing keys or speech models
+*.jks
+*.keystore
+*.bin
+!android/gradle/wrapper/gradle-wrapper.jar
