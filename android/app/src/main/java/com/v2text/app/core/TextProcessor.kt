@@ -24,6 +24,12 @@ data class CleanOptions(
 object TextProcessor {
     private val I = setOf(RegexOption.IGNORE_CASE)
 
+    // Android's regex engine is ICU, which rejects Java's (?U) / UNICODE_CHARACTER_CLASS flag (that caused
+    // "NoClassDefFoundError: TextProcessor" on the phone). Spell out Unicode word characters explicitly:
+    // letters, combining marks (Devanagari/Gujarati vowel signs), digits and underscore. Same result on JVM and ICU.
+    const val WORD = """[\p{L}\p{M}\p{N}_]"""
+    const val NON_WORD = """[^\p{L}\p{M}\p{N}_]"""
+
     // ------------------------------------------------------------ protected tokens
     // Anything matching these must leave the formatter unchanged.
     private val PROTECTED = listOf(
@@ -45,7 +51,7 @@ object TextProcessor {
     fun removeFillers(text: String, fillers: List<String>): String {
         if (fillers.isEmpty()) return text
         val alt = fillers.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
-        return Regex("""(?U)(?:,\s*)?(?<![\w'])(?:$alt)(?:\s*,)?(?![\w'])""", I).replace(text, "")
+        return fillerRegex(alt).replace(text, "")
     }
 
     private val scratchRe = Regex("""[.!?,]?\s*\bscratch that\b[.!?,]?\s*""", I)
@@ -98,7 +104,7 @@ object TextProcessor {
         val items = seq.mapIndexed { i, m ->
             val end = if (i + 1 < seq.size) seq[i + 1].range.first else text.length
             var item = text.substring(m.range.last + 1, end).trim().trim(',', ';').trim()
-            item = item.replace(Regex("""\s+and$"""), "").trimEnd('.')
+            item = item.replace(TIDY[6], "").trimEnd('.')
             item.replaceFirstChar { it.uppercaseChar() }
         }
         val body = items.mapIndexed { i, it -> "${i + 1}. $it" }.joinToString("\n")
@@ -106,7 +112,7 @@ object TextProcessor {
         return if (intro.isNotEmpty()) "$intro\n$body" else body
     }
 
-    private val shortOrNumeric = Regex("""(?U)[\d\W]+""")
+    private val shortOrNumeric = Regex("""(?:\d|$NON_WORD)+""")
 
     /** Exact (case-insensitive, whole-word) alias -> preferred term. No fuzzy/phonetic matching. */
     fun applyAliases(input: String, aliases: Map<String, String>): String {
@@ -114,7 +120,7 @@ object TextProcessor {
         for (alias in aliases.keys.sortedByDescending { it.length }) {
             if (alias.length < 3 || shortOrNumeric.matches(alias)) continue
             val term = aliases.getValue(alias)
-            text = Regex("""(?U)(?<!\w)${Regex.escape(alias)}(?!\w)""", I).replace(text) { term }
+            text = wholeWord(alias).replace(text) { term }
         }
         return text
     }
@@ -123,7 +129,7 @@ object TextProcessor {
     fun applyTermCase(input: String, terms: List<String>): String {
         var text = input
         for (t in terms.sortedByDescending { it.length }) {
-            text = Regex("""(?U)(?<!\w)${Regex.escape(t)}(?!\w)""", I).replace(text) { t }
+            text = wholeWord(t).replace(text) { t }
         }
         return text
     }
@@ -133,7 +139,7 @@ object TextProcessor {
         val mapping = linkedMapOf<String, String>()
         snippets.keys.sortedByDescending { it.length }.forEachIndexed { i, trig ->
             val tok = "[[S$i]]"
-            val new = Regex("""(?U)(?<!\w)${Regex.escape(trig)}(?!\w)[.!?]?""", I).replace(text) { tok }
+            val new = snippetRegex(trig).replace(text) { tok }
             if (new != text) {
                 mapping[tok] = snippets.getValue(trig)
                 text = new
@@ -147,14 +153,17 @@ object TextProcessor {
 
     private val sentenceStart = Regex("""(^|[.!?]\s+|\n)([a-z])""")
 
+    private val TIDY = listOf(Regex("""[ \t]+"""), Regex(""" +([,.!?;:])"""), Regex(""",\s*([.!?])"""),
+        Regex("""([.!?])\1+"""), Regex("""^[\s,]+"""), Regex("""[ \t]*\n[ \t]*"""), Regex("""\s+and$"""))
+
     fun tidy(input: String): String {
         var t = input
-        t = t.replace(Regex("""[ \t]+"""), " ")
-        t = t.replace(Regex(""" +([,.!?;:])""")) { it.groupValues[1] }
-        t = t.replace(Regex(""",\s*([.!?])""")) { it.groupValues[1] }
-        t = t.replace(Regex("""([.!?])\1+""")) { it.groupValues[1] }
-        t = t.replace(Regex("""^[\s,]+"""), "")
-        t = t.replace(Regex("""[ \t]*\n[ \t]*"""), "\n").trim()
+        t = t.replace(TIDY[0], " ")
+        t = t.replace(TIDY[1]) { it.groupValues[1] }
+        t = t.replace(TIDY[2]) { it.groupValues[1] }
+        t = t.replace(TIDY[3]) { it.groupValues[1] }
+        t = t.replace(TIDY[4], "")
+        t = t.replace(TIDY[5], "\n").trim()
         t = sentenceStart.replace(t) { it.groupValues[1] + it.groupValues[2].uppercase() }
         return t
     }
@@ -183,5 +192,22 @@ object TextProcessor {
         return CleanResult(unmask(text, snipMap), changes)
     }
 
-    fun wordCount(text: String): Int = Regex("""(?U)[\w'-]+""").findAll(text).count()
+    private val wordRe = Regex("""[\p{L}\p{M}\p{N}_'-]+""")
+    fun wordCount(text: String): Int = wordRe.findAll(text).count()
+
+    // ---------------------------------------------------------------- pattern builders
+    private fun fillerRegex(alt: String) =
+        Regex("""(?:,\s*)?(?<![\p{L}\p{M}\p{N}_'])(?:$alt)(?:\s*,)?(?![\p{L}\p{M}\p{N}_'])""", I)
+    private fun wholeWord(literal: String) = Regex("""(?<!$WORD)${Regex.escape(literal)}(?!$WORD)""", I)
+    private fun snippetRegex(trig: String) = Regex("""(?<!$WORD)${Regex.escape(trig)}(?!$WORD)[.!?]?""", I)
+
+    /**
+     * Every pattern this object compiles (dynamic ones built from sample input), so tests can
+     * verify them against Android's ICU regex engine, not just the JVM's.
+     */
+    fun patternsForCompatCheck(): List<String> = listOf(
+        protectedRegex.pattern, fillerRegex("um|उम्म|અં").pattern, scratchRe.pattern, sentenceSplit.pattern,
+        corrRe.pattern, timeRe.pattern, ordRe.pattern, shortOrNumeric.pattern, wholeWord("l n g").pattern,
+        snippetRegex("my signature").pattern, sentenceStart.pattern, wordRe.pattern,
+    ) + spoken.map { it.first.pattern } + TIDY.map { it.pattern }
 }
