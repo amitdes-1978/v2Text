@@ -64,7 +64,7 @@ object Wav {
 
         val outputSize = (a.size.toDouble() * dst / src).roundToInt().coerceAtLeast(1)
         val ratio = dst.toDouble() / src
-        val cutoff = minOf(1.0, ratio) * 0.94 // guard band below the destination Nyquist frequency
+        val cutoff = 0.5 * minOf(1.0, ratio) * 0.94 // guard band below the destination Nyquist frequency
         val radius = 16
         val out = FloatArray(outputSize)
 
