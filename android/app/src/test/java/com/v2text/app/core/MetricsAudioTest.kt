@@ -6,6 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.sqrt
 import kotlin.math.sin
 
 class MetricsAudioTest {
@@ -83,4 +84,31 @@ class MetricsAudioTest {
         val faint = FloatArray(100) { 0.001f }                          // capped at +24 dB
         assertEquals(24.0, AudioPrep.normalize(faint).gainDb, 0.01)
     }
+    @Test fun criticalTermsRequireWholeWordBoundaries() {
+        assertEquals(0 to 1, Metrics.criticalHits(listOf("LNG"), "the BLNG tanker"))
+        assertEquals(1 to 1, Metrics.criticalHits(listOf("Command Centre"), "the command centre is ready"))
+    }
+
+    @Test fun corpusWerIsWeightedByReferenceWordCount() {
+        val longRef = (1..100).joinToString(" ") { "word$it" }
+        val rows = listOf(
+            Bench.row(Bench.Item("long.wav", longRef, "en-IN", emptyList()), longRef.replace("word50", "wrong"), 1.0, null),
+            Bench.row(Bench.Item("short.wav", "yes", "en-IN", emptyList()), "no", 1.0, null),
+        )
+        val summary = Bench.summary(rows)
+        assertTrue(summary.contains("WER(corpus)=0.020"))
+        assertTrue(summary.contains("macro-WER=0.505"))
+    }
+
+    @Test fun resamplerSuppressesFrequenciesAboveNewNyquist() {
+        fun rms(a: FloatArray): Double = sqrt(a.drop(100).dropLast(100).map { it.toDouble() * it }.average())
+        val passband = FloatArray(48000) { i -> (0.5 * sin(2 * PI * 3000 * i / 48000)).toFloat() }
+        val stopband = FloatArray(48000) { i -> (0.5 * sin(2 * PI * 12000 * i / 48000)).toFloat() }
+        val pass = Wav.resample(passband, 48000, 16000)
+        val stop = Wav.resample(stopband, 48000, 16000)
+        assertEquals(16000, pass.size)
+        assertTrue("3 kHz speech-band tone should pass", rms(pass) > 0.25)
+        assertTrue("12 kHz tone must be attenuated before 16 kHz sampling", rms(stop) < 0.01)
+    }
+
 }
