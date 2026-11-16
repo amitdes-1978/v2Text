@@ -1,6 +1,7 @@
 package com.v2text.app.core
 
 import java.text.Normalizer
+import java.util.Locale
 
 /** WER / CER / critical-term accuracy / boundary loss (blueprint section 10.2). */
 object Metrics {
@@ -32,21 +33,26 @@ object Metrics {
     }
 
     private fun words(s: String) = normalize(s).split(' ').filter { it.isNotEmpty() }
+    private fun chars(s: String) = normalize(s).replace(" ", "").toList()
 
-    fun wer(ref: String, hyp: String): Double {
-        val r = words(ref)
-        return editDistance(r, words(hyp)).toDouble() / maxOf(r.size, 1)
-    }
+    fun wordCount(text: String): Int = words(text).size
+    fun wordErrors(ref: String, hyp: String): Int = editDistance(words(ref), words(hyp))
+    fun characterCount(text: String): Int = chars(text).size
+    fun characterErrors(ref: String, hyp: String): Int = editDistance(chars(ref), chars(hyp))
 
-    fun cer(ref: String, hyp: String): Double {
-        val r = normalize(ref).replace(" ", "").toList()
-        return editDistance(r, normalize(hyp).replace(" ", "").toList()).toDouble() / maxOf(r.size, 1)
+    fun wer(ref: String, hyp: String): Double = wordErrors(ref, hyp).toDouble() / maxOf(wordCount(ref), 1)
+    fun cer(ref: String, hyp: String): Double = characterErrors(ref, hyp).toDouble() / maxOf(characterCount(ref), 1)
+
+    /** Match whole normalized token sequences; substring matches (e.g. LNG inside BLNG) are not hits. */
+    private fun containsPhrase(haystack: List<String>, phrase: List<String>): Boolean {
+        if (phrase.isEmpty() || phrase.size > haystack.size) return false
+        return haystack.windowed(phrase.size).any { it == phrase }
     }
 
     fun criticalHits(terms: List<String>, hyp: String): Pair<Int, Int> {
-        val n = normalize(hyp)
-        val t = terms.filter { it.isNotBlank() }
-        return t.count { n.contains(normalize(it)) } to t.size
+        val actual = words(hyp)
+        val expected = terms.filter { it.isNotBlank() }.map(::words).filter { it.isNotEmpty() }
+        return expected.count { containsPhrase(actual, it) } to expected.size
     }
 
     fun firstWordLost(ref: String, hyp: String): Boolean {
@@ -109,12 +115,21 @@ object Bench {
             if (rs.isEmpty()) return
             val ct = rs.sumOf { it.criticalTotal }
             val lat = rs.map { it.latencyS }.sorted()
-            append("$label  n=${rs.size}  WER=${"%.3f".format(rs.map { it.wer }.average())}  ")
-            append("CER=${"%.3f".format(rs.map { it.cer }.average())}  ")
-            append("critical=${if (ct > 0) "%.1f%%".format(100.0 * rs.sumOf { it.criticalHit } / ct) else "-"}  ")
+            val refWords = rs.sumOf { Metrics.wordCount(it.reference) }
+            val wordErrors = rs.sumOf { Metrics.wordErrors(it.reference, it.hypothesis) }
+            val refChars = rs.sumOf { Metrics.characterCount(it.reference) }
+            val charErrors = rs.sumOf { Metrics.characterErrors(it.reference, it.hypothesis) }
+            // Pool edit counts over the complete corpus; retain macro averages as a separate diagnostic.
+            val corpusWer = wordErrors.toDouble() / maxOf(refWords, 1)
+            val corpusCer = charErrors.toDouble() / maxOf(refChars, 1)
+            append("$label  n=${rs.size}  WER(corpus)=${\"%.3f\".format(Locale.US, corpusWer)}  ")
+            append("macro-WER=${\"%.3f\".format(Locale.US, rs.map { it.wer }.average())}  ")
+            append("CER(corpus)=${\"%.3f\".format(Locale.US, corpusCer)}  ")
+            append("macro-CER=${\"%.3f\".format(Locale.US, rs.map { it.cer }.average())}  ")
+            append("critical=${if (ct > 0) "%.1f%%".format(Locale.US, 100.0 * rs.sumOf { it.criticalHit } / ct) else "-"}  ")
             append("first-lost=${rs.count { it.firstWordLost }}  last-lost=${rs.count { it.lastWordLost }}  ")
             append("empty=${rs.count { it.hypothesis.isBlank() }}  errors=${rs.count { it.error != null }}  ")
-            append("p50=${"%.2f".format(lat[lat.size / 2])}s\n")
+            append("p50=${"%.2f".format(Locale.US, lat[lat.size / 2])}s\n")
         }
         agg("overall", rows)
         rows.map { it.language }.distinct().sorted().forEach { l -> agg(l, rows.filter { it.language == l }) }
@@ -124,8 +139,8 @@ object Bench {
         append("audio,language,wer,cer,critical_hit,critical_total,first_word_lost,last_word_lost,latency_s,error,reference,hypothesis\n")
         fun q(s: String?) = "\"" + (s ?: "").replace("\"", "\"\"") + "\""
         rows.forEach {
-            append("${q(it.audio)},${it.language},${"%.4f".format(it.wer)},${"%.4f".format(it.cer)},${it.criticalHit},")
-            append("${it.criticalTotal},${it.firstWordLost},${it.lastWordLost},${"%.3f".format(it.latencyS)},${q(it.error)},")
+            append("${q(it.audio)},${it.language},${"%.4f".format(Locale.US, it.wer)},${"%.4f".format(Locale.US, it.cer)},${it.criticalHit},")
+            append("${it.criticalTotal},${it.firstWordLost},${it.lastWordLost},${"%.3f".format(Locale.US, it.latencyS)},${q(it.error)},")
             append("${q(it.reference)},${q(it.hypothesis)}\n")
         }
     }
