@@ -3,6 +3,12 @@ package com.v2text.app.core
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /** 16-bit PCM WAV encode/decode + resampling. Pure JVM, unit-tested. */
 object Wav {
@@ -47,23 +53,41 @@ object Wav {
         return resample(out, rate, targetRate)
     }
 
+    /**
+     * Band-limited resampling. The old moving-average filter followed by linear interpolation
+     * was not a proper anti-aliasing filter (especially for 44.1/48 kHz -> 16 kHz speech).
+     * A windowed-sinc low-pass is used for both downsampling and interpolation.
+     */
     fun resample(a: FloatArray, src: Int, dst: Int): FloatArray {
+        require(src > 0 && dst > 0) { "sample rates must be positive" }
         if (src == dst || a.isEmpty()) return a
-        var x = a
-        if (src > dst) { // moving-average low-pass before decimation
-            val k = Math.ceil(src.toDouble() / dst).toInt()
-            x = FloatArray(a.size) { i ->
-                var s = 0f; var n = 0
-                for (j in i - k / 2..i + (k - 1) / 2) if (j in a.indices) { s += a[j]; n++ }
-                s / n
+
+        val outputSize = (a.size.toDouble() * dst / src).roundToInt().coerceAtLeast(1)
+        val ratio = dst.toDouble() / src
+        val cutoff = minOf(1.0, ratio) * 0.94 // guard band below the destination Nyquist frequency
+        val radius = 16
+        val out = FloatArray(outputSize)
+
+        for (i in out.indices) {
+            val position = i / ratio
+            val center = floor(position).toInt()
+            var weighted = 0.0
+            var weightSum = 0.0
+            for (j in (center - radius + 1)..(center + radius)) {
+                if (j !in a.indices) continue
+                val distance = position - j
+                val scaled = distance * cutoff
+                if (abs(distance) >= radius) continue
+                val sinc = if (abs(scaled) < 1e-9) 1.0 else sin(PI * scaled) / (PI * scaled)
+                // Hann window, zero at the finite filter boundary.
+                val window = 0.5 + 0.5 * cos(PI * distance / radius)
+                val weight = cutoff * sinc * window
+                weighted += a[j] * weight
+                weightSum += weight
             }
+            out[i] = if (abs(weightSum) > 1e-12) (weighted / weightSum).toFloat() else 0f
         }
-        val n = Math.round(x.size.toDouble() * dst / src).toInt()
-        return FloatArray(n) { i ->
-            val p = if (n == 1) 0.0 else i * (x.size - 1).toDouble() / (n - 1)
-            val i0 = p.toInt(); val i1 = minOf(i0 + 1, x.size - 1); val fr = (p - i0).toFloat()
-            x[i0] * (1 - fr) + x[i1] * fr
-        }
+        return out
     }
 
     fun toFloat(pcm: ShortArray) = FloatArray(pcm.size) { pcm[it] / 32768f }
